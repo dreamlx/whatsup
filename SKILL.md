@@ -64,7 +64,7 @@ The label appears once per section; continuation, wrapped, and extra timeline li
 ## Rules
 
 - **Terse.** Hard caps: goal ≤ 8 words, nextAction ≤ 10 words, each timeline entry ≤ 14 words. Timeline entries may use the extra room to name files, symbols, or the reason — still fragments, not full sentences. No trailing punctuation.
-- **English**, regardless of the conversation's language.
+- **Match the session's language.** Render labels' values, brief, next action, and timeline in the same language the conversation is being conducted in. (Keep the structural labels `STATUS`/`GOAL`/`STATE`/`NEXT`/`RECENT` and status tokens `working`/`waiting`/`blocked`/`done` as-is.)
 - **Ground it** in what actually happened this session — never invent progress, events, or timestamps you can't justify.
 - **Be honest about status.** If you just asked the user something and haven't acted, that's `waiting`. If tests are failing and unresolved, that's `working` (or `blocked` if external), not `done`.
 - Render only the panel — no preamble or explanation around it unless the user asks.
