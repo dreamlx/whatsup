@@ -1,90 +1,98 @@
 ---
 name: whatsup
-description: Render a compact task status panel summarizing the current agent session — goal, progress %, status (working/waiting/blocked/done), next action, and a recent timeline. Use when the user asks "whatsup", "what's up", "status", "status panel", "where are we", "what's left", "summarize progress", "task dashboard", "give me a HUD", or types /whatsup or /status, especially mid-task or when resuming a long session.
+description: Render a compact recall panel that rehydrates an agent session after you've been away — what you were doing and where you stopped, the immediate next action, open loops (unanswered questions, unfinished work), decisions already settled or dropped, and the workspace state. Use when the user asks "whatsup", "what's up", "where are we", "where did I stop", "what's left", "what was I doing", "catch me up", "resume", "status", or types /whatsup or /status, especially when returning to a long-running session.
 ---
 
-# Status Panel
+# Recall Panel
 
-Summarize the **current session** into a compact dashboard, modeled on the Codey Task HUD. Works in any AI coding agent, not just Claude Code. Everything you need is already in the conversation — do not investigate the codebase. Just read the session and render the panel.
+Rehydrate the **current session** into a compact panel for someone returning after time away — they should be able to resume in seconds without re-reading the chat and output history. The job is **recall, not reporting**: optimize for "where was I, what's settled, what's the next move," not for a progress dashboard. Everything you need is already in the conversation — do not investigate the codebase. Just read the session and render the panel.
 
 ## Output format
 
-Render the panel inside a fenced ``` block as a **fully outlined box** of **fixed width** (`┌─┐ │ ├─┤ └─┘` on all four sides, sections split by `├─┤`). The 10-cell bar is `█` filled / `░` empty (`round(progress/10)` cells filled).
+Render the panel inside a fenced ``` block as a **fully outlined box** of **fixed width** (`┌─┐ │ ├─┤ └─┘` on all four sides, sections split by `├─┤`).
 
 **Fixed width — never grow the box; wrap instead.** The box is a constant **58 columns** wide (total, including both `│`) so it fits a small/narrow terminal. Lines never extend it — long values wrap onto new lines inside the box.
 
 ```
-┌─ STATUS ───────────────────────────────────────────────┐
-│ GOAL    <goal, ≤ 8 words>                              │
-│         <brief, wrapped to fit, ≤ 30 words>            │
-│         <…brief continues here>                        │
+┌─ WHATSUP ──────────────────────────────────────────────┐
+│ NOW     [<status>] <what you're doing, ≤ 8 words>      │
+│         stopped at: <last action + its result>         │
 ├────────────────────────────────────────────────────────┤
-│ STATE   [<status>] <bar> <progress>%   ·   <stepLabel> │
+│ NEXT    <immediate resume action, ≤ 10 words>          │
 ├────────────────────────────────────────────────────────┤
-│ NEXT    <next step or open question, ≤ 10 words>       │
-│         <one-line elaboration, optional>               │
+│ OPEN    ? <unanswered question you raised>             │
+│         □ <started-but-unfinished thread>              │
+├────────────────────────────────────────────────────────┤
+│ DECIDED ✓ <decision already settled>                   │
+│         ✗ <approach tried and dropped, + why>          │
+├────────────────────────────────────────────────────────┤
+│ STATE   <branch> · <N files dirty> · <test/build sig>  │
 ├────────────────────────────────────────────────────────┤
 │ RECENT  • <newest event>                    — <when>   │
-│         • <event>                           — <when>   │
 │         • <a longer event that needs to wrap onto      │
 │           a second line>                    — <when>   │
 └────────────────────────────────────────────────────────┘
 ```
 
 **How to lay it out (do this exactly):**
-1. Each row is `│ ` + an 8-char label column (`GOAL`/`STATE`/`NEXT`/`RECENT`, or 8 spaces for continuation/wrapped lines) + the value, then pad with trailing spaces and close ` │`. The inner area is **54 columns**; the value area after the label is **46**.
-2. **Wrap, don't widen.** If a value exceeds the value area (46 cols), break it at word boundaries onto continuation lines that reuse the 8-space blank label. For a wrapped timeline bullet, indent the continuation 2 spaces so text lines up under the `•`.
-3. The top rule (`┌─ STATUS ─…─┐`), every divider (`├─…─┤`), and the bottom rule (`└─…─┘`) all span the same **58** columns. (Treat each `█ ░ ─ │ •` as one column.)
+1. Each row is `│ ` + an 8-char label column (`NOW`/`NEXT`/`OPEN`/`DECIDED`/`STATE`/`RECENT`, or 8 spaces for continuation/wrapped lines) + the value, then pad with trailing spaces and close ` │`. The inner area is **54 columns**; the value area after the label is **46**.
+2. **Wrap, don't widen.** If a value exceeds the value area (46 cols), break it at word boundaries onto continuation lines that reuse the 8-space blank label. For a wrapped timeline bullet, indent the continuation 2 spaces so text lines up under the `•`. For wrapped `OPEN`/`DECIDED` items, indent the continuation 2 spaces so text lines up under the marker.
+3. The top rule (`┌─ WHATSUP ─…─┐`), every divider (`├─…─┤`), and the bottom rule (`└─…─┘`) all span the same **58** columns. (Treat each `─ │ • ✓ ✗ □ ?` as one column.)
 
-**Section dividers:** a `├─┤` rule between every section — after GOAL/brief, after STATE, after NEXT — plus the `└─┘` close after RECENT.
+**Section dividers:** a `├─┤` rule between every section, plus the `└─┘` close after RECENT.
 
 **Timeline timestamps:** **right-align** each `— <when>` to the box's right inner edge — because the box is fixed-width, they form a clean vertical column with no manual padding. If an entry's last line leaves no room for the timestamp, put `— <when>` on its own continuation line, still right-aligned.
 
-The label appears once per section; continuation, wrapped, and extra timeline lines use the 8-space blank label. Show the timeline newest-first: up to **8** entries covering the meaningful steps — every notable action, decision, and dropped approach you can ground. `<when>` is relative time (`just now`, `Nm ago`, `Nh ago`, `Nd ago`); omit it for an entry you can't ground. Omit the `NEXT` section when `status` is `done`.
+The label appears once per section; continuation, wrapped, and extra lines use the 8-space blank label. Show the timeline newest-first.
+
+**Omit empty sections.** `OPEN` with nothing open, `DECIDED` with nothing settled, `NEXT` when `status` is `done` — drop the whole section (and its divider) rather than printing a placeholder. Always render `NOW`; render `STATE` whenever you can ground any of branch / dirty files / test or build signal.
 
 ## Fields
 
-- **goal** — the overall task in one line. If unclear, infer from the first user request.
-- **brief** — one line expanding on the goal: the scope, the why, or what "done" means. ≤ 30 words. Omit if it would just restate the goal.
-- **status** — one of:
+- **status** — one of, shown as `[status]` next to NOW:
   - `waiting` — blocked on a user decision/answer (you asked something and are waiting)
   - `blocked` — stuck on an external problem (failing dep, missing access, broken env)
   - `done` — task finished and verified
   - `working` — anything else (default)
-- **progress** — integer 0–100. Determine it **step-based**, not by gut feel:
-  1. Break the goal into the discrete subtasks needed to reach "done" (the same steps as `stepLabel`).
-  2. `progress = round(100 × completed / total)`. A subtask counts as completed only once it's verified (test passed, file written, command succeeded) — half-done work doesn't count.
-  3. Anchors: nothing started = `0`; everything done **and verified** = `100`. Cap at `95` while any step is unfinished, unverified, or `status` is `waiting`/`blocked` — only a fully verified task reaches `100`.
-
-  If the goal has no clean step breakdown, fall back to a coarse estimate (`25` / `50` / `75`) and say why in the brief — don't invent false precision like `78%`.
-- **stepLabel** — optional, e.g. `step 3 / 5` when the work has clear discrete steps.
-- **nextAction** — the single most useful next step, or the open question if `waiting`.
-- **timeline** — concrete things that happened (`progress`, `action`, `decision`, or `dropped`/abandoned approach). Newest first, one per line under the `RECENT` label. `when` = relative time (`just now`, `Nm ago`, `Nh ago`, `Nd ago`).
+- **now** — what you're currently doing, in one line (≤ 8 words), plus a `stopped at:` line naming **the last concrete action and its result** — this is the cursor the reader resumes from. If unclear, infer the current focus from the most recent activity.
+- **next** — the single most useful resume action (≤ 10 words). If `waiting`, this is usually the decision needed.
+- **open** — open loops, the highest-value recall content. Two markers:
+  - `?` — a question you raised that hasn't been answered (often *why* the session was paused).
+  - `□` — a thread started but not finished (TODO, half-written code path, deferred edge case).
+- **decided** — settled context, the anti-rework section. Two markers:
+  - `✓` — a decision already made (so it isn't relitigated).
+  - `✗` — an approach tried and dropped, with the reason in a few words (so it isn't retried).
+- **state** — the **physical workspace** state to restore into: branch, count of dirty/modified files, and the test/build signal (`1 test ✗`, `build ✓`, `lint clean`). Ground these in what actually happened this session; omit any part you can't ground. No progress percentage — recall is about the workspace, not an abstract number.
+- **recent** — concrete things that happened (an `action`, `progress`, or notable observation). Newest first. Keep it short (≤ 4 entries) — `OPEN` and `DECIDED` carry the load; `recent` is just the trail. `when` = relative time (`just now`, `Nm ago`, `Nh ago`, `Nd ago`); omit it for an entry you can't ground.
 
 ## Rules
 
-- **Terse.** Hard caps: goal ≤ 8 words, nextAction ≤ 10 words, each timeline entry ≤ 14 words. Timeline entries may use the extra room to name files, symbols, or the reason — still fragments, not full sentences. No trailing punctuation.
-- **Match the session's language.** Render labels' values, brief, next action, and timeline in the same language the conversation is being conducted in. (Keep the structural labels `STATUS`/`GOAL`/`STATE`/`NEXT`/`RECENT` and status tokens `working`/`waiting`/`blocked`/`done` as-is.)
-- **Ground it** in what actually happened this session — never invent progress, events, or timestamps you can't justify.
+- **Terse.** Hard caps: now ≤ 8 words, next ≤ 10 words, each OPEN/DECIDED/RECENT item ≤ 14 words. Items may use the room to name files, symbols, or the reason — still fragments, not full sentences. No trailing punctuation.
+- **Optimize for resume time.** The reader was here before and forgot. Surface what they'd waste minutes rediscovering: where the cursor is, what's already decided, what's still open. Skip what they can re-derive at a glance.
+- **Match the session's language.** Render values, now, next, open, decided, and recent in the same language the conversation is being conducted in. (Keep the structural labels `WHATSUP`/`NOW`/`NEXT`/`OPEN`/`DECIDED`/`STATE`/`RECENT` and status tokens `working`/`waiting`/`blocked`/`done` as-is.)
+- **Ground it** in what actually happened this session — never invent events, decisions, or timestamps you can't justify.
 - **Be honest about status.** If you just asked the user something and haven't acted, that's `waiting`. If tests are failing and unresolved, that's `working` (or `blocked` if external), not `done`.
 - Render only the panel — no preamble or explanation around it unless the user asks.
 
 ## Example
 
 ```
-┌─ STATUS ───────────────────────────────────────────────┐
-│ GOAL    Wire up auth token refresh                     │
-│         silently renew expired tokens so users stay    │
-│         logged in across restarts                      │
+┌─ WHATSUP ──────────────────────────────────────────────┐
+│ NOW     [waiting] wiring auth token refresh            │
+│         stopped at: interceptor + backoff written,     │
+│         awaiting 401 retry-policy call                 │
 ├────────────────────────────────────────────────────────┤
-│ STATE   [working] ████████░░ 78%   ·   step 4 / 5      │
+│ NEXT    confirm exponential vs fixed retry interval    │
 ├────────────────────────────────────────────────────────┤
-│ NEXT    Add retry on 401 responses                     │
-│         wrap fetch in interceptor                      │
+│ OPEN    ? 401 retry policy — asked you, no answer      │
+│         □ refresh-failure fallback not written         │
 ├────────────────────────────────────────────────────────┤
-│ RECENT  • refresh endpoint added            — 2m ago   │
+│ DECIDED ✓ tokens in keychain, not localStorage         │
+│         ✗ dropped silent-iframe refresh (CORS)         │
+├────────────────────────────────────────────────────────┤
+│ STATE   auth-refresh · 3 files dirty · 1 test ✗        │
+├────────────────────────────────────────────────────────┤
+│ RECENT  • interceptor + backoff written     — 2m ago   │
 │         • token store wired                 — 8m ago   │
-│         • added interceptor with retry and back-       │
-│           off on expired tokens            — 12m ago   │
 └────────────────────────────────────────────────────────┘
 ```

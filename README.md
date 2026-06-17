@@ -1,24 +1,29 @@
 # whatsup
 
-An agent skill that renders the current session as a compact, fixed-width **status panel** — goal, progress, status, next action, and a recent timeline — inspired by the [Codey](https://github.com/its-ahoh/codey/) Mac app's Task HUD.
+An agent skill that rehydrates the current session into a compact, fixed-width **recall panel** — what you were doing and where you stopped, the next move, open loops, decisions already settled or dropped, and the workspace state. It's for the moment you come back to a long-running session after hours away and would otherwise spend minutes re-reading the chat and output history. Inspired by the [Codey](https://github.com/its-ahoh/codey/) Mac app's Task HUD.
 
 ```
-┌─ STATUS ───────────────────────────────────────────────┐
-│ GOAL    Wire up auth token refresh                     │
-│         silently renew expired tokens so users stay    │
-│         logged in across restarts                      │
+┌─ WHATSUP ──────────────────────────────────────────────┐
+│ NOW     [waiting] wiring auth token refresh            │
+│         stopped at: interceptor + backoff written,     │
+│         awaiting 401 retry-policy call                 │
 ├────────────────────────────────────────────────────────┤
-│ STATE   [working] ████████░░ 78%   ·   step 4 / 5      │
+│ NEXT    confirm exponential vs fixed retry interval    │
 ├────────────────────────────────────────────────────────┤
-│ NEXT    Add retry on 401 responses                     │
-│         wrap fetch in interceptor                      │
+│ OPEN    ? 401 retry policy — asked you, no answer      │
+│         □ refresh-failure fallback not written         │
 ├────────────────────────────────────────────────────────┤
-│ RECENT  • refresh endpoint added            — 2m ago   │
+│ DECIDED ✓ tokens in keychain, not localStorage         │
+│         ✗ dropped silent-iframe refresh (CORS)         │
+├────────────────────────────────────────────────────────┤
+│ STATE   auth-refresh · 3 files dirty · 1 test ✗        │
+├────────────────────────────────────────────────────────┤
+│ RECENT  • interceptor + backoff written     — 2m ago   │
 │         • token store wired                 — 8m ago   │
-│         • added interceptor with retry and back-       │
-│           off on expired tokens            — 12m ago   │
 └────────────────────────────────────────────────────────┘
 ```
+
+It's a recall primer, not a progress dashboard: it leads with **where the cursor is** (`NOW` / `stopped at:`), the **open loops** that are usually why you paused (`OPEN`), and the **decisions already made or dropped** so you don't relitigate or retry them (`DECIDED`). There's deliberately no progress percentage — coming back, you need the workspace state, not an abstract number.
 
 ## Install
 
@@ -32,9 +37,9 @@ For other agents, clone into wherever that agent loads skills from.
 
 ## Usage
 
-Invoke it mid-task to get a snapshot of where things stand:
+Invoke it when you return to a session to catch back up fast:
 
 - `/whatsup`
-- or just ask: "whatsup", "what's up", "where are we", "summarize progress"
+- or just ask: "whatsup", "where are we", "where did I stop", "what was I doing", "catch me up"
 
 The panel is a fixed **58-column** outlined box that wraps long lines so it fits a narrow terminal, with right-aligned timestamps that form a clean column. See [`SKILL.md`](SKILL.md) for the full format spec.
